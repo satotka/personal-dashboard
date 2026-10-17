@@ -1,23 +1,71 @@
 # Pocket — 今日を、ひと目で。
 
-Mobile-first market, financial-service links and News mockup. Preserve existing Site owner-only access. No account, asset, income or transaction data is acquired. Previous /api/data endpoint is removed. Browser outbound data connections disabled by CSP.
+相場、天気、ニュース、金融サービスなどへのリンクをまとめたモバイル向けダッシュボードです。相場・天気・ニュースはサーバーから外部配信元にアクセスして取得します。口座・資産・収入・取引データは取得しません。Gmailは未接続です。
 
-Quotes, changes, charts and News titles are explicitly fictional examples. Bank/brokerage links are placeholders and do not assert account ownership. Outbound links open official homepages, not fictional news articles. Source code contains no financial user data.
+## 表示するデータ
 
-Market filters, chart time ranges, News filters and customization dialog work in browser. Configuration is in src/index.html. No external packages or data connections. Build: npm run build. Tests: npm test. Output: dist/index.js and dist/wrangler.json.
+| 機能 | 取得元・表示内容 |
+| --- | --- |
+| 相場 | Yahoo Finance chart APIの日経平均（`^N225`）と米ドル／円（`JPY=X`）。最大10年の日次データ、最新値、前回記録比、チャートを表示します。 |
+| 天気 | 気象庁の神奈川県東部予報。横浜・川崎の天気、横浜の予想最高気温、当日の予報期間内の最大降水確率を表示します。現在気温は表示しません。 |
+| 企業・サービスのNews | Google News RSSで名称を引用符で囲み、過去7日間の関連記事を検索します。公式発表の網羅的な一覧ではありません。 |
+| NHKトップニュース | NHKの主要ニュースRSSから過去7日間の記事を取得します。 |
 
-## Market data
+相場の表示範囲は4W（28日）、365D、10Y（3650日）です。ニュースは公開日時で絞り込み、各取得結果内で記事URLの重複を除きます。件数は取得した検索結果・記事の件数です。ニュースのリンクは取得した記事URL、サービスのリンクは公式サイトを開きます。
 
-GET /api/markets fetches Yahoo Finance chart JSON for ^N225 and JPY=X, daily records up to ten years. HTML contains no market snapshot; frontend requests the endpoint. Cache API holds data for seven days and revalidates after 24 hours on access. Failed fetches retain prior data if present and retry after one hour. Cache is regional and evictable: a cold cache can fetch earlier than 24h. This is not a global exactly-once scheduler. Browser requests again after cache expiry while open; no unattended schedule is configured, per user preference. Source terms/availability can change; endpoint is not a contracted service. No artificial market values are displayed on failure. Weather, News and Gmail remain explicitly fictional.
+取得に失敗した場合、保存済みデータがあれば更新失敗の表示とともに前回値を返します。保存済みデータがなければエラーを表示し、架空の相場・天気・ニュースで補いません。配信元の仕様・利用条件・可用性に依存し、本番環境での取得成功を保証するものではありません。
 
-## Current integrations
+## APIとキャッシュ
 
-Market ranges: 4W (28 days), 365D, 10Y (3650 days), for both Nikkei and USD/JPY. Weather now uses JMA Kanagawa eastern regional forecast rather than Open-Meteo; no current temperature is fabricated. Server storage is Sites R2 binding BUCKET, not the unavailable default Cache API.
+| GETエンドポイント | 保存済みデータを更新する間隔 | 取得失敗後の再試行待ち時間 |
+| --- | --- | --- |
+| `/api/markets` | 24時間 | 1時間 |
+| `/api/weather` | 1時間 | 通常15分。HTTP 429は最低1時間で、数値の`Retry-After`がそれ以上ならその秒数 |
+| `/api/news` | 企業・サービスは6時間、NHKは1時間 | 1時間 |
+| `/api/diagnostics` | 最新の診断記録を読むだけで、配信元への取得は行いません | — |
 
-Company News uses Google News RSS exact-name search over the past seven days, six-hour R2 cache and one-hour retry on errors. This is related news search, not a complete official announcement inventory; deduplication by article URL and date filtering apply. Counts indicate retrieved search results. News collection not yet verified in production.
+データと診断記録はSitesのR2バインディング`BUCKET`に保存します。デフォルトのCache APIは使いません。保存データ内の取得・再試行日時を参照し、待ち時間を過ぎたAPIアクセス時に再取得します。7日後に保存データを削除する処理はありません。
 
-Gmail remains disconnected: no fictional counts are displayed. ChatGPT's Gmail connection does not establish hosted Sites eligibility; required eligibility discovery tool is unavailable. No mail contents or account data are embedded in releases.
+ブラウザーは相場・天気を応答内の次回取得可能時刻に合わせて再要求します（最短1分）。ニュースの再要求は6時間ごとなので、NHKの1時間更新やエラー後1時間の再試行は、画面を開き続けるだけではその時刻に実行されません。ページを開き直すなど、次のAPIアクセスが必要です。無人で動く定期実行や、全リクエストを通じた取得の一回性は実装していません。
 
-## Diagnostics
+API応答は`Cache-Control: private, no-store`です。旧`/api/data`は404を返します。
 
-Expand 接続状況・診断ログ at the bottom. GET /api/diagnostics reads only latest R2 records, without triggering provider requests. Normal /api/markets, /api/weather, /api/news calls record source state, cache use, actual attempt and success timestamps, upstream HTTP status, request duration, count, data date, retry time and a UUID trace ID. source_diagnostic structured logs use the same ID; api_failure logs capture uncaught infrastructure failures. No article bodies, account identifiers, cookies or tokens are logged. Cached failure is distinct from successful zero results. Latest per-source records are persisted under diagnostics/latest in R2; execution-log retention follows Sites. Opening diagnostics before the first API finishes may show unconfirmed until reload.
+## 開発・ビルド
+
+Node.jsとnpmを使用します。Node.js 24.19.0でテストを確認済みです。`package.json`には最低対応バージョンの指定がなく、外部npmパッケージへの依存もありません。
+
+リポジトリのルートで実行します。
+
+```sh
+npm test
+npm run build
+```
+
+ビルドはHTMLと各モジュールをまとめ、`dist/index.js`と`dist/wrangler.json`を生成します。`dist/index.js`はWorkerのエントリーポイントで、Node.jsで直接起動するサーバーではありません。ローカル開発サーバーや配備用のnpmスクリプトは含まれていません。
+
+主な編集箇所は次のとおりです。
+
+- `src/index.html`: 画面、サービスリンク、ブラウザー側の取得・表示処理
+- `src/worker.js`: ルーティングとレスポンスヘッダー
+- `src/market.mjs`、`src/weather.mjs`、`src/news.mjs`: 配信元の取得・変換・更新間隔
+- `src/cache.mjs`: R2保存用アダプター
+- `src/diagnostics.mjs`: 診断の記録と読み出し
+
+## Sitesへの配備と確認
+
+1. テストとビルドを実行します。
+2. 既存のSitesプロジェクトに、`.openai/hosting.json`とビルド済みの`dist/`を配備します。`.openai/hosting.json`にはプロジェクトIDとR2バインディング名`BUCKET`が設定されています。別プロジェクトで使う場合は配備先に合わせて設定してください。
+3. Sites側でR2が`env.BUCKET`として利用できることを確認します。生成される`dist/wrangler.json`単体にはR2設定は含まれません。`BUCKET`未接続では相場・天気・ニュースAPIは500、診断APIは503を返します。
+4. 配備先の`/`を開き、相場・天気・ニュースを確認します。画面下部の「接続状況・診断ログ」で取得元、HTTP応答、取得日時、エラーを確認できます。
+
+既存サイトの所有者限定アクセスをSites側で維持してください。Worker自体には認証処理がなく、画面上の表示だけではアクセスを制限できません。ブラウザーのデータ通信はCSPの`connect-src 'self'`で同一オリジンに限定しています。サーバーから配信元へのアクセスや、外部リンクへの遷移は行います。
+
+本番での配信元への疎通確認は、ローカルテストとは別に必要です。テストは配信元の応答や保存領域を模擬しており、実サービスの可用性は検証しません。
+
+## 診断ログ
+
+通常の`/api/markets`、`/api/weather`、`/api/news`へのアクセス時に、取得元ごとの状態、キャッシュ利用、最終取得試行・成功日時、HTTPステータス、所要時間、記録数、データ基準日時、次回取得可能時刻、UUIDの診断IDを記録します。取得失敗の保存データと、取得成功した0件の結果を区別します。
+
+最新記録はR2の`diagnostics/latest/`配下に保存します。`source_diagnostic`構造化ログには同じ診断IDを出力し、データ取得APIの捕捉された例外は`api_failure`として記録します。ログに記事本文・口座識別子・Cookie・トークンを含める処理はありません。実行ログの保持期間はSites側の設定に従います。
+
+診断パネルは開いたとき、または更新ボタンを押したときに記録を読みます。初回API処理が完了する前に開くと「未確認」と表示される場合があるため、処理完了後に診断を更新してください。
