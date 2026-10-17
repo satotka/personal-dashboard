@@ -1,0 +1,12 @@
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+await mkdir('dist',{recursive:true});
+const helpers=(await readFile('src/ranges.mjs','utf8')).replaceAll('export ','');
+const html=(await readFile('src/index.html','utf8')).replace('/* RANGE_HELPERS */',helpers);
+const market=(await readFile('src/market.mjs','utf8')).replaceAll('export ','');
+const weather=(await readFile('src/weather.mjs','utf8')).replaceAll('export ','');
+const cache=(await readFile('src/cache.mjs','utf8')).replaceAll('export ','');
+const news=(await readFile('src/news.mjs','utf8')).replaceAll('export ','');
+const diagnostics=(await readFile('src/diagnostics.mjs','utf8')).replaceAll('export ','');
+const source=(await readFile('src/worker.js','utf8')).replace("import {getMarkets} from './market.mjs';",market).replace("import {getWeather} from './weather.mjs';",weather).replace("import {siteCache} from './cache.mjs';",cache).replace("import {getNews} from './news.mjs';",news).replace("import {createDiagnosticSession,readDiagnostics} from './diagnostics.mjs';",diagnostics);
+await writeFile('dist/index.js',`const HTML=${JSON.stringify(html)};\n${source}`);
+await writeFile('dist/wrangler.json',JSON.stringify({name:'pocket-dashboard',main:'index.js',compatibility_date:'2026-10-01'}));
