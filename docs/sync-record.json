@@ -1,0 +1,22 @@
+{
+  "github_commit": "eecb79d399c674f6ce6323c9771e362679c82844",
+  "sites_commit": "4691230a2de3ecfdcc1f128c2c52d1946b365b74",
+  "tree": "8f30b3637d41f828db40db5792ff813791f6ee68",
+  "archive": "/workspace/pocket-sync/pocket-deploy.tar.gz",
+  "archive_sha256": "4e6d2d88423033e0a383c475c57464c4d34258eca52fa17a67b7428131196a1c",
+  "site_project_id": "appgprj_6ad2b1c86b3c81918ecd03a9a35875e0",
+  "version_number": 27,
+  "version_id": "appgprj_6ad2b1c86b3c81918ecd03a9a35875e0~appgver_25c27d15b340819198f0af48d9bddb6d",
+  "deployment_id": "appgdep_6ad4d3c2bf6c8191af800132272d534e",
+  "deployment_status": "succeeded",
+  "deployed_at": "2026-10-18T23:12:34+09:00",
+  "url": "https://personal-pocket-dashboard.satotka.chatgpt.site",
+  "access": "owner-only",
+  "verification": {
+    "tests_passed": 7,
+    "build": "passed",
+    "built_worker_html": "passed",
+    "github_sites_tree_equal": true,
+    "browser_qa": "unavailable"
+  }
+}
